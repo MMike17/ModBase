@@ -31,7 +31,7 @@ namespace ModBase
 
             // Harmony patching
             Harmony harmony = new Harmony(modEntry.Info.Id);
-            harmony.PatchAll();
+            Main.Try("Harmony patching", () => harmony.PatchAll(), true);
 
             // hook in mod manager event
             modEntry.OnToggle = OnToggleEvent;
@@ -64,7 +64,7 @@ namespace ModBase
         public static void Error(string message) => Logger.Error(message);
 
         /// <summary>Use this to log possible execution errors to the console</summary>
-        public static void Try(string flag, Action callback)
+        public static void Try(string flag, Action callback, bool crashOnError = false)
         {
             try
             {
@@ -73,6 +73,9 @@ namespace ModBase
             catch (Exception e)
             {
                 Error(flag + "\n" + e.ToString());
+
+                if(crashOnError)
+                    throw e;
             }
         }
 
@@ -116,6 +119,20 @@ namespace ModBase
             }
 
             info.Invoke(source, args);
+        }
+
+        /// <summary>BindingFlags.NonPrivate is implicit / source can be null</summary>
+        public static U InvokeMethod<T, U>(T source, string methodName, BindingFlags flags, object[] args)
+        {
+            MethodInfo info = typeof(T).GetMethod(methodName, flags | BindingFlags.NonPublic);
+
+            if (info == null)
+            {
+                Error("Couldn't find method info for method \"" + methodName + "\" in type \"" + source.GetType() + "\"");
+                return default;
+            }
+
+            return (U)info.Invoke(source, args);
         }
 
         public static void SetMarkers(bool state)
